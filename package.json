@@ -1,0 +1,18 @@
+{
+  "name": "landingpage-2026",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "extract:assets": "python scripts/extract_docx_assets.py"
+  },
+  "devDependencies": {
+    "jsdom": "^28.1.0",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  }
+}
