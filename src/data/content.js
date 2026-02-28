@@ -11,9 +11,9 @@ const sectionLeads = {
 };
 
 const introParagraphs = [
-  "Website được xây dựng nhằm giới thiệu và tuyên truyền rộng rãi ý nghĩa về Hội trại Tòng quân, cũng như những dấu ấn lịch sử vẻ vang của công tác tuyển quân thông qua các nội dung tiêu biểu dưới đây.",
   "Nhằm tuyên truyền, giáo dục truyền thống cách mạng vẻ vang của Đảng, dân tộc, Quân đội, địa phương và đơn vị nâng cao ý thức trách nhiệm của công dân trong nhiệm vụ xây dựng và bảo vệ Tổ quốc; thể hiện sự quan tâm, chăm lo của cấp ủy Đảng, chính quyền, Mặt trận Tổ quốc và các tổ chức chính trị - xã hội các cấp đến toàn thể công dân trúng tuyển, động viên khơi dậy sức trẻ, tính xung kích, tự giác cho công dân hăng hái thi hành nghĩa vụ Quân sự và thực hiện nghĩa vụ tham gia Công an nhân dân.",
   "Tạo điều kiện cho công dân trúng tuyển nghĩa vụ Quân sự và thực hiện nghĩa vụ tham gia Công an nhân dân năm 2026 được giao lưu, trao đổi, học tập kinh nghiệm trước khi nhập ngũ; phát huy vai trò xung kích của các tổ chức Đoàn, đoàn viên, công dân và của cả hệ thống chính trị góp phần củng cố, xây dựng nền quốc phòng toàn dân, an ninh nhân dân vững mạnh, xây dựng lực lượng vũ trang vững mạnh toàn diện, đáp ứng yêu cầu nhiệm vụ trong tình hình mới.",
+  "Website được xây dựng nhằm giới thiệu và tuyên truyền rộng rãi ý nghĩa về Hội trại Tòng quân, cũng như những dấu ấn lịch sử vẻ vang của công tác tuyển quân thông qua các nội dung tiêu biểu dưới đây.",
 ];
 
 function normalizeItems(section) {

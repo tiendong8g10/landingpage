@@ -9,6 +9,10 @@ describe("menu interaction styles", () => {
     expect(styleCss).toMatch(/\.nav-link\s*\{[\s\S]*overflow:\s*hidden;/);
     expect(styleCss).toMatch(/\.nav-link::before\s*\{[\s\S]*pointer-events:\s*none;/);
   });
+
+  it("lets collapsed mobile menu extend outside the navbar shell", () => {
+    expect(styleCss).toMatch(/\.top-nav\s*\{[\s\S]*overflow:\s*visible;/);
+  });
 });
 
 describe("gallery image fit", () => {
