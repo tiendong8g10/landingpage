@@ -102,7 +102,6 @@ function createSectionMarkup(section) {
             aria-label="Mở ảnh ${safeIndex + 1} trong phần ${escapeHtml(section.title)}"
           >
             <img src="${block.src}" alt="${escapeHtml(block.alt || section.title)}" loading="lazy" />
-            ${block.caption ? `<figcaption class="doc-caption editorial-copy">${escapeHtml(block.caption)}</figcaption>` : ""}
           </figure>
         `;
       })

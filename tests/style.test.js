@@ -10,3 +10,9 @@ describe("menu interaction styles", () => {
     expect(styleCss).toMatch(/\.nav-link::before\s*\{[\s\S]*pointer-events:\s*none;/);
   });
 });
+
+describe("gallery image fit", () => {
+  it("shows full gallery images without cropping", () => {
+    expect(styleCss).toMatch(/\.gallery-card img\s*\{[\s\S]*object-fit:\s*contain;/);
+  });
+});

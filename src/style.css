@@ -497,8 +497,9 @@ h2 {
   display: block;
   width: 100%;
   aspect-ratio: 4 / 3;
-  object-fit: cover;
-  background: #e5e7eb;
+  object-fit: contain;
+  background: linear-gradient(180deg, #f7ecda, #f2e1c1);
+  padding: 0.4rem;
 }
 
 .gallery-caption {

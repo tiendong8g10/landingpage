@@ -80,11 +80,13 @@ describe("page render", () => {
     const flow = section.querySelector(".doc-flow");
     const textBlocks = section.querySelectorAll(".doc-flow p.doc-text");
     const imageBlocks = section.querySelectorAll(".doc-flow figure.doc-image");
+    const imageCaptions = section.querySelectorAll(".doc-flow figure.doc-image figcaption");
     const legacyGallery = section.querySelector(".gallery-grid");
 
     expect(flow).not.toBeNull();
     expect(textBlocks.length).toBeGreaterThan(3);
     expect(imageBlocks.length).toBeGreaterThan(0);
+    expect(imageCaptions).toHaveLength(0);
     expect(legacyGallery).toBeNull();
   });
 
