@@ -20,7 +20,9 @@ OUTPUT_JSON = ROOT / "generated" / "content-data.json"
 REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 A_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
-R_ID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
+DOC_REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+EMBED_ID = f"{DOC_REL_NS}embed"
+HYPERLINK_REL_ID = f"{DOC_REL_NS}id"
 
 
 SECTION_SPECS = [
@@ -77,7 +79,58 @@ def resolve_docx(section_keywords: list[str], docx_files: list[Path]) -> Path:
     raise FileNotFoundError(f"Cannot match DOCX for keywords: {section_keywords}")
 
 
-def parse_docx_events(docx_path: Path) -> tuple[list[tuple[str, str]], dict[str, str], zipfile.ZipFile]:
+def sanitize_fragment_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "")
+
+
+def extract_paragraph_parts(paragraph: ET.Element, rel_map: dict[str, str]) -> list[dict[str, str]]:
+    parts: list[dict[str, str]] = []
+
+    for child in list(paragraph):
+        if child.tag == f"{W_NS}hyperlink":
+            text = "".join(node.text or "" for node in child.findall(f".//{W_NS}t"))
+            text = sanitize_fragment_text(text)
+            if not text:
+                continue
+
+            rel_id = child.attrib.get(HYPERLINK_REL_ID, "")
+            href = rel_map.get(rel_id, "")
+            if href:
+                parts.append({"text": text, "href": href})
+            else:
+                parts.append({"text": text})
+            continue
+
+        if child.tag == f"{W_NS}r":
+            text = "".join(node.text or "" for node in child.findall(f".//{W_NS}t"))
+            text = sanitize_fragment_text(text)
+            if text:
+                parts.append({"text": text})
+
+    if not parts:
+        fallback = sanitize_fragment_text("".join(node.text or "" for node in paragraph.findall(f".//{W_NS}t")))
+        if fallback:
+            return [{"text": fallback}]
+        return []
+
+    merged: list[dict[str, str]] = []
+    for part in parts:
+        text = part.get("text", "")
+        href = part.get("href", "")
+        if not text:
+            continue
+        if merged and merged[-1].get("href", "") == href:
+            merged[-1]["text"] = f"{merged[-1]['text']}{text}"
+            continue
+        merged.append({"text": text, **({"href": href} if href else {})})
+
+    if merged:
+        merged[0]["text"] = merged[0]["text"].lstrip()
+        merged[-1]["text"] = merged[-1]["text"].rstrip()
+    return [part for part in merged if part.get("text")]
+
+
+def parse_docx_events(docx_path: Path) -> tuple[list[dict], dict[str, str], zipfile.ZipFile]:
     archive = zipfile.ZipFile(docx_path)
     rel_root = ET.fromstring(archive.read("word/_rels/document.xml.rels"))
     rel_map: dict[str, str] = {}
@@ -92,31 +145,33 @@ def parse_docx_events(docx_path: Path) -> tuple[list[tuple[str, str]], dict[str,
     if body is None:
         return [], rel_map, archive
 
-    events: list[tuple[str, str]] = []
+    events: list[dict] = []
     for paragraph in body.findall(f"{W_NS}p"):
-        text = "".join(node.text or "" for node in paragraph.findall(f".//{W_NS}t"))
-        text = normalize_space(text)
+        parts = extract_paragraph_parts(paragraph, rel_map)
+        text = normalize_caption("".join(part.get("text", "") for part in parts))
         blips = paragraph.findall(f".//{A_NS}blip")
         for blip in blips:
-            relation_id = blip.attrib.get(R_ID)
+            relation_id = blip.attrib.get(EMBED_ID)
             target = rel_map.get(relation_id or "", "")
             if target:
-                events.append(("img", target))
+                events.append({"kind": "img", "target": target})
         if text:
-            events.append(("txt", normalize_caption(text)))
+            events.append({"kind": "txt", "text": text, "parts": parts})
 
     return events, rel_map, archive
 
 
-def assign_caption(events: list[tuple[str, str]], image_index: int, fallback: str) -> str:
+def assign_caption(events: list[dict], image_index: int, fallback: str) -> str:
     for idx in range(image_index + 1, len(events)):
-        kind, value = events[idx]
+        event = events[idx]
+        kind = event.get("kind")
         if kind == "txt":
-            return value
+            return str(event.get("text", ""))
     for idx in range(image_index - 1, -1, -1):
-        kind, value = events[idx]
+        event = events[idx]
+        kind = event.get("kind")
         if kind == "txt":
-            return value
+            return str(event.get("text", ""))
     return fallback
 
 
@@ -135,8 +190,13 @@ def extract() -> dict:
         section_dir = PUBLIC_IMAGES_DIR / spec["id"]
         section_dir.mkdir(parents=True, exist_ok=True)
 
-        image_events = [(idx, value) for idx, (kind, value) in enumerate(events) if kind == "img"]
+        image_events = [
+            (idx, str(event.get("target", "")))
+            for idx, event in enumerate(events)
+            if event.get("kind") == "img"
+        ]
         items = []
+        image_by_event_index: dict[int, dict] = {}
 
         for position, (event_index, media_target) in enumerate(image_events, start=1):
             archive_path = f"word/{media_target}".replace("\\", "/")
@@ -153,13 +213,37 @@ def extract() -> dict:
             fallback_caption = f"{spec['title']} - Hình {position}"
             caption = normalize_caption(assign_caption(events, event_index, fallback_caption)) or fallback_caption
 
-            items.append(
-                {
-                    "src": f"/images/{spec['id']}/{output_name}",
-                    "caption": caption,
-                    "alt": caption,
-                }
-            )
+            item = {
+                "src": f"/images/{spec['id']}/{output_name}",
+                "caption": caption,
+                "alt": caption,
+            }
+            items.append(item)
+            image_by_event_index[event_index] = item
+
+        blocks = []
+        for event_index, event in enumerate(events):
+            kind = event.get("kind")
+            if kind == "txt":
+                text_value = normalize_caption(str(event.get("text", "")))
+                if text_value:
+                    text_block = {"type": "text", "text": text_value}
+                    parts = event.get("parts")
+                    if isinstance(parts, list) and parts:
+                        text_block["parts"] = parts
+                    blocks.append(text_block)
+                continue
+
+            image_item = image_by_event_index.get(event_index)
+            if image_item:
+                blocks.append(
+                    {
+                        "type": "image",
+                        "src": image_item["src"],
+                        "caption": image_item["caption"],
+                        "alt": image_item["alt"],
+                    }
+                )
 
         archive.close()
 
@@ -168,6 +252,7 @@ def extract() -> dict:
                 "id": spec["id"],
                 "title": spec["title"],
                 "items": items,
+                "blocks": blocks,
             }
         )
 

@@ -1,4 +1,4 @@
-import "./style.css";
+﻿import "./style.css";
 import { siteContent } from "./data/content.js";
 
 let activeDocumentHandler = null;
@@ -22,7 +22,102 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;");
 }
 
+function sanitizeHref(href) {
+  if (!href) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(href, window.location.origin);
+    const allowedProtocols = new Set(["http:", "https:", "mailto:", "tel:"]);
+    return allowedProtocols.has(parsed.protocol) ? parsed.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function renderTextBlock(block) {
+  const parts = Array.isArray(block.parts) ? block.parts : [];
+  if (!parts.length) {
+    return escapeHtml(block.text || "");
+  }
+
+  return parts
+    .map((part) => {
+      const text = escapeHtml(String(part.text || ""));
+      if (!text) {
+        return "";
+      }
+
+      const safeHref = sanitizeHref(String(part.href || ""));
+      if (!safeHref) {
+        return text;
+      }
+
+      return `<a class="doc-link" href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    })
+    .join("");
+}
+
+const AIR_DEFENSE_BOLD_LINES = new Set([
+  "lịch sử hình thành",
+  "hình thành bộ tư lệnh phòng không và cục không quân",
+  "thành lập quân chủng",
+  "tách - nhập quân chủng",
+]);
+
+function normalizeHeadingKey(text) {
+  return String(text || "")
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function isAirDefenseBoldLine(block) {
+  return AIR_DEFENSE_BOLD_LINES.has(normalizeHeadingKey(block?.text));
+}
+
 function createSectionMarkup(section) {
+  if (
+    section.id === "quan-chung-phong-khong-khong-quan" &&
+    Array.isArray(section.blocks) &&
+    section.blocks.length
+  ) {
+    const blockHtml = section.blocks
+      .map((block) => {
+        if (block.type === "text") {
+          const emphasisClass = isAirDefenseBoldLine(block) ? " doc-subheading" : "";
+          return `<p class="doc-text editorial-copy${emphasisClass}">${renderTextBlock(block)}</p>`;
+        }
+
+        const safeIndex = Number.isInteger(block.imageIndex) ? block.imageIndex : 0;
+        return `
+          <figure
+            class="doc-image gallery-card"
+            role="button"
+            tabindex="0"
+            data-section="${section.id}"
+            data-index="${safeIndex}"
+            aria-label="Mở ảnh ${safeIndex + 1} trong phần ${escapeHtml(section.title)}"
+          >
+            <img src="${block.src}" alt="${escapeHtml(block.alt || section.title)}" loading="lazy" />
+            ${block.caption ? `<figcaption class="doc-caption editorial-copy">${escapeHtml(block.caption)}</figcaption>` : ""}
+          </figure>
+        `;
+      })
+      .join("");
+
+    return `
+      <section id="${section.id}" class="content-section reveal">
+        <header class="section-header">
+          <h2 class="section-title spring-glow parade-sweep">${escapeHtml(section.title)}</h2>
+        </header>
+        <article class="doc-flow">${blockHtml}</article>
+      </section>
+    `;
+  }
+
   const itemsHtml = section.items
     .map((item, index) => {
       return `
@@ -35,7 +130,7 @@ function createSectionMarkup(section) {
           aria-label="Mở ảnh ${index + 1} trong phần ${escapeHtml(section.title)}"
         >
           <img src="${item.src}" alt="${escapeHtml(item.alt)}" loading="lazy" />
-          <p class="gallery-caption">${escapeHtml(item.caption)}</p>
+          <p class="gallery-caption editorial-copy">${escapeHtml(item.caption)}</p>
         </article>
       `;
     })
@@ -44,8 +139,8 @@ function createSectionMarkup(section) {
   return `
     <section id="${section.id}" class="content-section reveal">
       <header class="section-header">
-        <h2>${escapeHtml(section.title)}</h2>
-        <p>${escapeHtml(section.lead || "")}</p>
+        <h2 class="section-title spring-glow parade-sweep">${escapeHtml(section.title)}</h2>
+        <p class="editorial-copy section-copy">${escapeHtml(section.lead || "")}</p>
       </header>
       <div class="gallery-grid">${itemsHtml}</div>
     </section>
@@ -54,23 +149,37 @@ function createSectionMarkup(section) {
 
 function buildTemplate(data) {
   const navLinks = data.sections
-    .map((section) => `<a href="#${section.id}">${escapeHtml(section.title)}</a>`)
+    .map((section) => `<a class="nav-link" href="#${section.id}">${escapeHtml(section.title)}</a>`)
     .join("");
-  const introHtml = data.hero.intro.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
+  const introHtml = data.hero.intro
+    .map((paragraph) => `<p class="editorial-copy">${escapeHtml(paragraph)}</p>`)
+    .join("");
   const sectionsHtml = data.sections.map((section) => createSectionMarkup(section)).join("");
 
   return `
     <header class="top-nav">
       <div class="nav-inner">
-        <p class="brand">Tiểu trại Phạm Văn Sáng</p>
-        <nav aria-label="Điều hướng nội dung chính">${navLinks}</nav>
+        <p class="mobile-brand">TIỂU TRẠI PHẠM VĂN SÁNG</p>
+        <button
+          type="button"
+          class="menu-toggle"
+          data-mobile-nav-toggle
+          aria-expanded="false"
+          aria-controls="main-nav"
+          aria-label="Mở hoặc đóng menu mục nội dung"
+        >
+          <span class="menu-toggle-line"></span>
+          <span class="menu-toggle-line"></span>
+          <span class="menu-toggle-line"></span>
+        </button>
+        <nav id="main-nav" class="main-nav" aria-label="Điều hướng nội dung chính" data-mobile-nav data-open="false">${navLinks}</nav>
       </div>
     </header>
 
     <main>
       <section class="hero reveal" id="gioi-thieu">
         <p class="hero-kicker">Hội trại tòng quân 2026</p>
-        <h1>${escapeHtml(data.hero.title)}</h1>
+        <h1 class="hero-title spring-shimmer parade-sweep">${escapeHtml(data.hero.title)}</h1>
         <p class="hero-subtitle">${escapeHtml(data.hero.subtitle)}</p>
         <div class="intro-copy">${introHtml}</div>
       </section>
@@ -134,10 +243,88 @@ function wireReveal(root) {
         }
       });
     },
-    { threshold: 0.15 }
+    { threshold: 0.02, rootMargin: "0px 0px -8% 0px" }
   );
 
-  revealTargets.forEach((node) => observer.observe(node));
+  revealTargets.forEach((node) => {
+    const rect = node.getBoundingClientRect();
+    if (rect.top < window.innerHeight * 0.95) {
+      node.classList.add("is-visible");
+    }
+    observer.observe(node);
+  });
+}
+
+function wireMobileNav(root) {
+  const topNav = root.querySelector(".top-nav");
+  const toggle = root.querySelector("[data-mobile-nav-toggle]");
+  const nav = root.querySelector("[data-mobile-nav]");
+  if (!topNav || !toggle || !nav) {
+    return;
+  }
+
+  const setOpen = (open) => {
+    nav.dataset.open = open ? "true" : "false";
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  };
+
+  setOpen(false);
+
+  toggle.addEventListener("click", () => {
+    if (!topNav.classList.contains("is-collapsed")) {
+      return;
+    }
+    const currentlyOpen = nav.dataset.open === "true";
+    setOpen(!currentlyOpen);
+  });
+
+  nav.querySelectorAll("a[href^='#']").forEach((item) => {
+    item.addEventListener("click", () => setOpen(false));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!topNav.classList.contains("is-collapsed")) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+    if (!nav.contains(target) && !toggle.contains(target)) {
+      setOpen(false);
+    }
+  });
+}
+
+function wireNavLayout(root) {
+  const topNav = root.querySelector(".top-nav");
+  const navInner = root.querySelector(".nav-inner");
+  const nav = root.querySelector("[data-mobile-nav]");
+  const toggle = root.querySelector("[data-mobile-nav-toggle]");
+  if (!topNav || !navInner || !nav || !toggle) {
+    return;
+  }
+
+  const applyLayout = () => {
+    const viewportCollapsed =
+      typeof window !== "undefined" &&
+      (window.matchMedia?.("(max-width: 839px)")?.matches ?? true);
+
+    topNav.classList.remove("is-collapsed");
+    const overflowCollapsed = nav.scrollWidth > navInner.clientWidth - 8;
+    const shouldCollapse = viewportCollapsed || overflowCollapsed;
+
+    topNav.classList.toggle("is-collapsed", shouldCollapse);
+    if (!shouldCollapse) {
+      nav.dataset.open = "false";
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  };
+
+  applyLayout();
+  requestAnimationFrame(applyLayout);
+  window.addEventListener("load", applyLayout);
+  window.addEventListener("resize", applyLayout, { passive: true });
 }
 
 function wireLightbox(root, sectionsById) {
@@ -252,6 +439,8 @@ export function renderApp(root, data = siteContent) {
   const sectionsById = Object.fromEntries(data.sections.map((section) => [section.id, section]));
   wireImageFallback(root);
   wireReveal(root);
+  wireMobileNav(root);
+  wireNavLayout(root);
   wireLightbox(root, sectionsById);
 }
 
@@ -259,3 +448,4 @@ const root = document.querySelector("#app");
 if (root) {
   renderApp(root, siteContent);
 }
+

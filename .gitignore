@@ -18,12 +18,16 @@ dist
 dist-ssr
 *.local
 .vercel
+/.playwright-cli/
+.vite-dev.log
 
 # Python cache
 __pycache__/
 *.py[cod]
 .pytest_cache/
 
+# Internal notes
+/docs/plans/
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
