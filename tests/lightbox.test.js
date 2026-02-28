@@ -19,10 +19,14 @@ describe("lightbox behavior", () => {
   it("opens when clicking image card and closes on escape", () => {
     const card = document.querySelector(".gallery-card");
     expect(card).not.toBeNull();
+    const sourceImage = card.querySelector("img");
+
     card.click();
 
     const overlay = document.querySelector("[data-lightbox]");
+    const overlayImage = document.querySelector("[data-lightbox-image]");
     expect(overlay.dataset.open).toBe("true");
+    expect(overlayImage.getAttribute("src")).toBe(sourceImage.getAttribute("src"));
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(overlay.dataset.open).toBe("false");
@@ -44,9 +48,7 @@ describe("lightbox behavior", () => {
     expect(counter.textContent).toBe(initialCounter);
   });
 
-  it("shows full caption directly in lightbox without extra detail modal", () => {
-    const longCaption =
-      "Trong thời gian từ 16 tháng 5 năm 1977 đến 3 tháng 3 năm 1999, Quân chủng Phòng không – Không quân tách ra thành hai Quân chủng riêng biệt và có nhiều thay đổi tổ chức để phù hợp nhiệm vụ từng giai đoạn lịch sử.";
+  it("shows a large image and keeps caption inline in the same modal", () => {
     const customData = {
       ...siteContent,
       sections: [
@@ -58,7 +60,7 @@ describe("lightbox behavior", () => {
             {
               src: "/images/quan-chung-phong-khong-khong-quan/image-01.jpg",
               alt: "alt",
-              caption: longCaption,
+              caption: "Sư đoàn Phòng không 375, phường Hòa Phát, quận Cẩm Lệ, Đà Nẵng.",
             },
           ],
         },
@@ -71,13 +73,12 @@ describe("lightbox behavior", () => {
     const card = document.querySelector(".gallery-card");
     card.click();
 
+    const overlayImage = document.querySelector("[data-lightbox-image]");
     const preview = document.querySelector("[data-lightbox-caption]");
-    const expand = document.querySelector("[data-caption-expand]");
-    const detail = document.querySelector("[data-caption-detail]");
 
-    expect(preview.textContent).toContain("Quân chủng Phòng không");
-    expect(preview.textContent.endsWith("...")).toBe(false);
-    expect(expand).toBeNull();
-    expect(detail).toBeNull();
+    expect(overlayImage.getAttribute("src")).toContain("image-01.jpg");
+    expect(preview.textContent).toContain("Sư đoàn Phòng không 375");
+    expect(document.querySelector("[data-caption-expand]")).toBeNull();
+    expect(document.querySelector("[data-caption-detail]")).toBeNull();
   });
 });
